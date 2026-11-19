@@ -94,11 +94,9 @@ Typical recovery time is about **60 seconds**.
 ```text
 self-healing-ec2-aws/
 ├── README.md
-├── frontend/
-│   └── dash2.html             # Dashboard (uploaded to S3 as index.html)
-├── backend/
-│   └── lambda_function.py     # Lambda code that terminates the running instance
-└── screenshots/               # Figures 1–9
+│── dash2.html             # Dashboard (uploaded to S3 as index.html)
+│── lambda_function.py     # Lambda code that terminates the running instance
+└── screenshots/           
 ```
 
 ---
@@ -215,7 +213,7 @@ def lambda_handler(event, context):
 
 ### Step 5: Configure the Dashboard
 
-1. Open `frontend/dash2.html` in a text editor.
+1. Open `/dash2.html` in a text editor.
 2. Find the input with `id="api"` and set its `value` to **your** API endpoint URL from Step 4:
 
 ```html
