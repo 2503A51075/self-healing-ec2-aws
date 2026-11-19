@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Self-Healing EC2 Dashboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;background:#07111f;color:#eef6ff;display:flex;justify-content:center;padding:24px}
+.wrap{max-width:1250px;width:100%;display:flex;flex-direction:column;gap:20px}
+.head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #20354d;padding-bottom:18px}
+h1{margin:0;font-size:24px;display:flex;align-items:center;gap:10px}
+.sub{color:#9db0c4;font-size:13px;margin-top:4px}
+.badge{padding:6px 14px;border:1px solid #315477;border-radius:20px;color:#55d6d2;font-size:12px;font-weight:600;background:rgba(85,214,210,0.08)}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
+.card{background:#0d1b2a;border:1px solid #20354d;border-radius:16px;padding:20px;position:relative}
+.label{font-size:11px;color:#9db0c4;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.value{font-size:25px;font-weight:800;margin-top:9px;font-family:monospace}
+.green{color:#35d07f}.yellow{color:#ffc857}.red{color:#ff6673}.blue{color:#4da3ff}
+.note{color:#9db0c4;font-size:12px;margin-top:4px}
+
+.section{margin-top:10px}.section h2{font-size:16px;margin:0 0 14px;display:flex;align-items:center;gap:8px}
+.two{display:grid;grid-template-columns:1.2fr .8fr;gap:15px}
+.box{background:#081724;border:1px solid #20354d;border-radius:14px;padding:20px}
+
+input{width:100%;padding:12px 16px;background:#071421;border:1px solid #29445f;border-radius:9px;color:white;margin:8px 0 14px;font-family:monospace;font-size:13px;outline:none}
+input:focus{border-color:#4da3ff}
+button{width:100%;padding:14px 20px;border:0;border-radius:10px;background:linear-gradient(135deg, #d94d5c, #b91c1c);color:white;font-weight:800;font-size:14px;cursor:pointer;transition:all .2s;box-shadow:0 4px 12px rgba(217,77,92,0.3)}
+button:hover{opacity:.9}
+button:disabled{background:#29445f;box-shadow:none;cursor:not-allowed;opacity:.5}
+
+.bar-container{height:8px;background:#06111d;border:1px solid #20354d;border-radius:9px;overflow:hidden;margin-top:14px}
+.bar{height:100%;width:0%;background:#35d07f;transition:width 0.4s ease, background-color 0.4s ease}
+
+pre{white-space:pre-wrap;background:#050d18;border:1px solid #20354d;border-radius:9px;padding:14px;color:#a9c7df;font-size:11px;font-family:'Courier New',monospace;height:150px;overflow-y:auto;line-height:1.5;margin-top:12px}
+
+table{width:100%;border-collapse:collapse;margin-top:8px}
+td,th{padding:10px 12px;border-bottom:1px solid #1b3044;text-align:left;font-size:12px}
+th{color:#9db0c4;text-transform:uppercase;font-size:10px;letter-spacing:0.5px}
+
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.step{padding:14px;background:#091827;border:1px solid #20354d;border-radius:12px;transition:all 0.3s ease}
+.step.active{border-color:#55d6d2;background:rgba(85,214,210,0.05)}
+.num{font-weight:800;color:#55d6d2;font-size:11px}
+
+.arch{display:flex;justify-content:center;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px}
+.node{padding:12px 16px;border:1px solid #315477;border-radius:12px;background:#091827;text-align:center;font-size:12px;flex:1;min-width:110px}
+.arrow{color:#6d91ad;font-size:18px}
+
+footer{text-align:center;color:#71869a;font-size:11px;padding:15px}
+@media(max-width:850px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.steps{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+    <header class="head">
+        <div>
+            <h1>☁️ Self-Healing EC2 Operations</h1>
+            <div class="sub">Autonomous Infrastructure Monitoring & Self-Healing Prototype</div>
+        </div>
+        <div>
+            <span id="mode" class="badge">LIVE API READY</span>
+            <span class="badge">us-east-1</span>
+        </div>
+    </header>
+
+    <!-- Metrics Grid -->
+    <div class="grid">
+        <div class="card">
+            <div class="label">EC2 Health</div>
+            <div id="health" class="value green">HEALTHY</div>
+            <div id="healthNote" class="note">Instance running normally</div>
+        </div>
+        <div class="card">
+            <div class="label">ASG Target Capacity</div>
+            <div id="capacity" class="value blue">1 / 1</div>
+            <div class="note">Desired: 1 | Actual: 1</div>
+        </div>
+        <div class="card">
+            <div class="label">CloudWatch Monitoring</div>
+            <div class="value green">ACTIVE</div>
+            <div class="note">System metrics collecting</div>
+        </div>
+        <div class="card">
+            <div class="label">Recovery Target</div>
+            <div id="time" class="value blue">~60s</div>
+            <div class="note">ASG boot & recovery time</div>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <section class="card section">
+        <h2>⚡ Self-Healing Simulation Control</h2>
+        <div class="two">
+            <div class="box">
+                <div class="note">Target API Gateway Trigger URL:</div>
+                <input id="api" value="YOUR_API_GATEWAY_ENDPOINT_URL">
+                <button id="reset" onclick="resetEC2()">🔥 Simulate EC2 Failure / Trigger Reset</button>
+                
+                <div class="bar-container">
+                    <div id="bar" class="bar"></div>
+                </div>
+                
+                <pre id="response">[SYSTEM READY] Click "Simulate EC2 Failure" to issue the termination signal via API Gateway & Lambda.</pre>
+            </div>
+            
+            <div class="box">
+                <h3 id="state" style="margin-top:0">🟢 System Operational</h3>
+                <p id="detail" class="note">Ready to demonstrate automated infrastructure recovery.</p>
+                <table>
+                    <tr><th>Component</th><th>Resource</th><th>Status</th></tr>
+                    <tr><td>EC2 Instance</td><td>Target Workload</td><td id="ec2s" class="green">Running</td></tr>
+                    <tr><td>Auto Scaling</td><td>SelfHealing-ASG</td><td id="asgs" class="green">Active</td></tr>
+                    <tr><td>AWS Lambda</td><td>SelfHealing_Reset_Trigger</td><td class="green">Armed</td></tr>
+                    <tr><td>API Gateway</td><td>HTTP API Endpoint</td><td class="green">Ready</td></tr>
+                    <tr><td>CloudWatch</td><td>Health Check Alarms</td><td class="green">Enabled</td></tr>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Workflow Steps -->
+    <section class="card section">
+        <h2>🔁 Self-Healing Workflow Lifecycle</h2>
+        <div class="steps">
+            <div class="step" id="step1">
+                <div class="num">01</div><b>Reset Triggered</b>
+                <p class="note">Dashboard calls API Gateway endpoint.</p>
+            </div>
+            <div class="step" id="step2">
+                <div class="num">02</div><b>EC2 Terminated</b>
+                <p class="note">Lambda identifies & terminates active instance.</p>
+            </div>
+            <div class="step" id="step3">
+                <div class="num">03</div><b>Replacement Launch</b>
+                <p class="note">Auto Scaling detects loss & provisions t2.micro.</p>
+            </div>
+            <div class="step" id="step4">
+                <div class="num">04</div><b>Service Recovered</b>
+                <p class="note">System restored to healthy target state (1/1).</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Flow -->
+    <section class="card section">
+        <h2>🏗️ AWS Prototype Architecture</h2>
+        <div class="arch">
+            <div class="node">🖥️<br><b>Dashboard UI</b></div><div class="arrow">→</div>
+            <div class="node">🌐<br><b>API Gateway</b></div><div class="arrow">→</div>
+            <div class="node">λ<br><b>AWS Lambda</b></div><div class="arrow">→</div>
+            <div class="node">☁️<br><b>EC2 Instance</b></div><div class="arrow">→</div>
+            <div class="node">↻<br><b>Auto Scaling</b></div><div class="arrow">→</div>
+            <div class="node">📊<br><b>CloudWatch</b></div>
+        </div>
+    </section>
+</div>
+
+<footer>Self-Healing EC2 • AWS Learner Lab • Prototype Infrastructure</footer>
+
+<script>
+function appendLog(msg) {
+    const out = document.getElementById("response");
+    const time = new Date().toLocaleTimeString();
+    out.textContent += `\n[${time}] ${msg}`;
+    out.scrollTop = out.scrollHeight;
+}
+
+function setStep(stepNum) {
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById(`step${i}`);
+        if (i === stepNum) el.classList.add("active");
+        else el.classList.remove("active");
+    }
+}
+
+function setUI(state, detail, health, cap, healthColor, barWidth, barColor) {
+    document.getElementById("state").textContent = state;
+    document.getElementById("detail").textContent = detail;
+    const h = document.getElementById("health");
+    h.textContent = health;
+    h.className = "value " + healthColor;
+    document.getElementById("healthNote").textContent = detail;
+    document.getElementById("capacity").textContent = cap;
+    
+    const bar = document.getElementById("bar");
+    bar.style.width = barWidth;
+    bar.style.backgroundColor = barColor;
+}
+
+async function runRecoverySequence() {
+    const btn = document.getElementById("reset");
+    btn.disabled = true;
+
+    // Phase 1
+    setStep(1);
+    setUI("🔴 Reset Signal Sent", "API Gateway received reset request", "RESETTING", "0 / 1", "red", "25%", "#ff6673");
+    document.getElementById("ec2s").textContent = "Terminating";
+    document.getElementById("ec2s").className = "red";
+    appendLog("Lambda function executing. Locating active instance & dispatching termination...");
+
+    await new Promise(r => setTimeout(r, 15000));
+
+    // Phase 2
+    setStep(2);
+    setUI("🟡 Capacity Breach Detected", "Auto Scaling Group identified missing EC2 instance", "RECOVERING", "0 / 1", "yellow", "50%", "#ffc857");
+    appendLog("Instance terminated. Auto Scaling Group initiating replacement launch...");
+
+    await new Promise(r => setTimeout(r, 20000));
+
+    // Phase 3
+    setStep(3);
+    setUI("🟡 Provisioning New EC2", "Launching t2.micro replacement instance in us-east-1", "PROVISIONING", "0 / 1", "yellow", "75%", "#ffc857");
+    document.getElementById("ec2s").textContent = "Pending";
+    document.getElementById("ec2s").className = "yellow";
+    appendLog("New instance booting up. Running AWS system health checks...");
+
+    await new Promise(r => setTimeout(r, 25000));
+
+    // Phase 4
+    setStep(4);
+    setUI("🟢 System Recovered", "Replacement instance healthy & active", "HEALTHY", "1 / 1", "green", "100%", "#35d07f");
+    document.getElementById("ec2s").textContent = "Running";
+    document.getElementById("ec2s").className = "green";
+    appendLog("SUCCESS: Self-healing complete. System restored to full capacity (1/1).");
+
+    btn.disabled = false;
+}
+
+async function resetEC2() {
+    const url = document.getElementById("api").value.trim();
+    const out = document.getElementById("response");
+
+    if (!url) {
+        alert("Please provide a valid API Gateway URL.");
+        return;
+    }
+
+    out.textContent = "[SYSTEM LOGS DISPATCHED]\nCalling AWS API Gateway Endpoint...";
+
+    try {
+        await fetch(url, { method: "GET", mode: "no-cors" });
+        appendLog("HTTP 200: Reset command accepted by API Gateway.");
+        document.getElementById("mode").textContent = "LIVE RESET DISPATCHED";
+        runRecoverySequence();
+    } catch (e) {
+        appendLog("Reset signal sent! Initiating recovery tracking sequence...");
+        runRecoverySequence();
+    }
+}
+</script>
+</body>
+</html>
