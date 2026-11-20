@@ -1,5 +1,5 @@
 # self-healing-ec2-aws
-Autonomous AWS EC2 self-healing prototype using S3, API Gateway, Lambda, and Auto Scaling
+Autonomous AWS EC2 self-healing prototype using S3, API Gateway, Lambda, and Auto Scaling.
 # ☁️ Self-Healing EC2 on AWS
 
 A software-only prototype that demonstrates **automatic infrastructure recovery** on AWS. A web dashboard sends a "failure" signal through API Gateway to a Lambda function, which terminates the running EC2 instance. An Auto Scaling Group notices the missing capacity and launches a replacement instance automatically, with no manual action.
